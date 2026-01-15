@@ -6,6 +6,49 @@ Showing self-assessed ideation quality comparing Human-Only vs AI-Augmented cond
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+import sys
+
+def validate_output_path(filename):
+    """
+    Validate and sanitize output file path to prevent path traversal attacks.
+
+    Security measures:
+    - Ensures filename contains no directory traversal patterns (../)
+    - Strips path components, keeping only the basename
+    - Validates file extension is safe
+    - Returns absolute path in current working directory
+
+    Args:
+        filename: Proposed output filename
+
+    Returns:
+        str: Validated absolute path for output file
+
+    Raises:
+        ValueError: If filename is invalid or contains malicious patterns
+    """
+    if not filename or not isinstance(filename, str):
+        raise ValueError("Filename must be a non-empty string")
+
+    # Remove any directory components to prevent path traversal
+    safe_filename = os.path.basename(filename)
+
+    # Check for path traversal attempts
+    if '..' in filename or filename.startswith('/') or filename.startswith('\\'):
+        raise ValueError(f"Invalid filename: path traversal detected in '{filename}'")
+
+    # Validate the file has an appropriate extension
+    allowed_extensions = {'.png', '.jpg', '.jpeg', '.pdf', '.svg'}
+    _, ext = os.path.splitext(safe_filename)
+    if ext.lower() not in allowed_extensions:
+        raise ValueError(f"Invalid file extension: {ext}. Allowed: {allowed_extensions}")
+
+    # Create absolute path in current working directory
+    output_path = os.path.abspath(safe_filename)
+
+    return output_path
+
 
 # Set publication-quality parameters
 plt.rcParams['font.family'] = 'serif'
@@ -84,12 +127,22 @@ ax.set_yticks(np.arange(1.0, 5.5, 0.5))
 # Adjust layout to prevent label cutoff
 plt.tight_layout()
 
-# Save the figure at high resolution
+# Save the figure at high resolution with security validation
 output_filename = 'ideation_quality_chart.png'
-plt.savefig(output_filename, dpi=300, bbox_inches='tight',
-            facecolor='white', edgecolor='none')
 
-print(f"Chart successfully created and saved as '{output_filename}'")
+try:
+    # Validate output path to prevent path traversal attacks
+    safe_output_path = validate_output_path(output_filename)
+
+    # Save with validated path
+    plt.savefig(safe_output_path, dpi=300, bbox_inches='tight',
+                facecolor='white', edgecolor='none')
+
+    print(f"Chart successfully created and saved as '{os.path.basename(safe_output_path)}'")
+    print(f"Full path: {safe_output_path}")
+except (ValueError, OSError, IOError) as e:
+    print(f"Error saving chart: {e}", file=sys.stderr)
+    sys.exit(1)
 print(f"Resolution: 300 DPI")
 print(f"Format: PNG")
 print("\nChart Details:")
